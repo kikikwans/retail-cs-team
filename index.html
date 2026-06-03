@@ -72,7 +72,7 @@
       font-weight: 700; color: #fff; margin-bottom: 10px;
     }
     .status-on-duty { background: var(--success); }
-    .status-away    { background: var(--warning); }
+    .status-break   { background: var(--warning); }
     .status-restroom{ background: var(--info); }
     .status-off     { background: var(--danger); }
     .status-unknown { background: var(--muted); }
@@ -154,7 +154,7 @@
   <script>
     const STATUSES = [
       { key: 'on-duty',  label: 'On-duty',  class: 'status-on-duty',  btn: 'btn-success' },
-      { key: 'away',     label: 'Away',     class: 'status-away',     btn: 'btn-warning' },
+      { key: 'break',    label: 'Break',    class: 'status-break',    btn: 'btn-warning' },
       { key: 'restroom', label: 'Restroom', class: 'status-restroom', btn: 'btn-info' },
       { key: 'off',      label: 'Off',      class: 'status-off',      btn: 'btn-danger' },
     ];
@@ -262,7 +262,7 @@
     function getColor(key) {
       switch (key) {
         case 'on-duty':  return 'var(--success)';
-        case 'away':     return 'var(--warning)';
+        case 'break':    return 'var(--warning)';
         case 'restroom': return 'var(--info)';
         case 'off':      return 'var(--danger)';
         default:         return 'var(--muted)';
