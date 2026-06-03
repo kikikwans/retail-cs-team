@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Retail CS Team — Lazada Org</title>
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --success: #16a34a;
+      --warning: #d97706;
+      --danger: #dc2626;
+      --info: #0891b2;
+      --radius: 12px;
+      --shadow: 0 4px 12px rgba(0,0,0,0.06);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg); color: var(--text);
+    }
+    .container { max-width: 1100px; margin: 0 auto; padding: 24px; }
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 12px; margin-bottom: 24px;
+    }
+    h1 { margin: 0; font-size: 1.6rem; }
+    .clock { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+    .toolbar {
+      display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+      margin-bottom: 20px;
+    }
+    input[type="text"] {
+      padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px;
+      font-size: 1rem; min-width: 220px;
+    }
+    button {
+      padding: 10px 14px; border: none; border-radius: 8px; cursor: pointer;
+      font-size: 0.95rem; font-weight: 600; transition: transform .05s, opacity .2s;
+    }
+    button:hover { opacity: .9; }
+    button:active { transform: translateY(1px); }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-ghost { background: #fff; color: var(--text); border: 1px solid var(--border); }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-warning { background: var(--warning); color: #fff; }
+    .btn-danger  { background: var(--danger);  color: #fff; }
+    .btn-info    { background: var(--info);    color: #fff; }
+    .btn-sm { padding: 6px 10px; font-size: 0.85rem; }
+
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .member-card {
+      background: var(--card); border-radius: var(--radius); padding: 16px;
+      box-shadow: var(--shadow); border: 1px solid var(--border);
+      position: relative;
+    }
+    .member-card .top {
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;
+    }
+    .name { font-weight: 700; font-size: 1.1rem; }
+    .remove { color: var(--danger); cursor: pointer; font-size: 1.1rem; line-height: 1; }
+    .status-badge {
+      display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 0.8rem;
+      font-weight: 700; color: #fff; margin-bottom: 10px;
+    }
+    .status-on-duty { background: var(--success); }
+    .status-away    { background: var(--warning); }
+    .status-restroom{ background: var(--info); }
+    .status-off     { background: var(--danger); }
+    .status-unknown { background: var(--muted); }
+
+    .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .actions button { flex: 1 1 45%; min-width: 90px; }
+
+    .section-title { font-size: 1.15rem; font-weight: 700; margin: 24px 0 10px; }
+
+    .history-table-wrap { overflow-x: auto; }
+    table {
+      width: 100%; border-collapse: collapse; background: var(--card);
+      border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+    }
+    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+    th { background: #f9fafb; font-weight: 600; color: var(--muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    tr:hover { background: #f9fafb; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+
+    .empty { color: var(--muted); padding: 24px; text-align: center; }
+
+    .stats { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+    .stat-chip {
+      background: var(--card); border: 1px solid var(--border); border-radius: 999px;
+      padding: 6px 14px; font-size: 0.9rem; font-weight: 600; box-shadow: var(--shadow);
+    }
+
+    .toast {
+      position: fixed; bottom: 20px; right: 20px; background: #1f2937; color: #fff;
+      padding: 12px 16px; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+      opacity: 0; transform: translateY(10px); transition: opacity .3s, transform .3s;
+      pointer-events: none; z-index: 1000;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    @media (max-width: 640px) {
+      .grid { grid-template-columns: 1fr; }
+      header { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Retail CS Team — Lazada Org</h1>
+      <div class="clock" id="clock">--:--:--</div>
+    </header>
+
+    <div class="toolbar">
+      <input type="text" id="newMemberName" placeholder="Enter team member name..." />
+      <button class="btn-primary" onclick="addMember()">Add Member</button>
+      <button class="btn-ghost" onclick="exportCSV()">Export CSV</button>
+      <button class="btn-ghost" onclick="clearHistory()">Clear History</button>
+    </div>
+
+    <div class="stats" id="stats"></div>
+
+    <div id="membersGrid" class="grid"></div>
+
+    <div class="section-title">Status History</div>
+    <div class="history-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Name</th>
+            <th>Status</th>
+            <th>Duration</th>
+          </tr>
+        </thead>
+        <tbody id="historyBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const STATUSES = [
+      { key: 'on-duty',  label: 'On-duty',  class: 'status-on-duty',  btn: 'btn-success' },
+      { key: 'away',     label: 'Away',     class: 'status-away',     btn: 'btn-warning' },
+      { key: 'restroom', label: 'Restroom', class: 'status-restroom', btn: 'btn-info' },
+      { key: 'off',      label: 'Off',      class: 'status-off',      btn: 'btn-danger' },
+    ];
+
+    function loadData() {
+      try {
+        const raw = localStorage.getItem('teamStatusData');
+        if (raw) return JSON.parse(raw);
+      } catch (e) {}
+      return { members: [], history: [] };
+    }
+    function saveData(data) {
+      localStorage.setItem('teamStatusData', JSON.stringify(data));
+    }
+    let data = loadData();
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2000);
+    }
+
+    function nowISO() { return new Date().toISOString(); }
+    function fmtTime(iso) {
+      const d = new Date(iso);
+      return d.toLocaleString('en-GB', { hour12: false });
+    }
+    function durationText(fromISO, toISO) {
+      const diff = Math.max(0, Math.floor((new Date(toISO) - new Date(fromISO)) / 1000));
+      const m = Math.floor(diff / 60), s = diff % 60;
+      return m > 0 ? `${m}m ${s}s` : `${s}s`;
+    }
+
+    function addMember() {
+      const input = document.getElementById('newMemberName');
+      const name = input.value.trim();
+      if (!name) { showToast('Please enter a name'); return; }
+      if (data.members.some(m => m.name.toLowerCase() === name.toLowerCase())) {
+        showToast('Member already exists'); return;
+      }
+      data.members.push({ id: crypto.randomUUID(), name, status: '', since: nowISO() });
+      input.value = '';
+      saveData(data); render();
+      showToast(`Added ${name}`);
+    }
+
+    function removeMember(id) {
+      data.members = data.members.filter(m => m.id !== id);
+      saveData(data); render();
+    }
+
+    function setStatus(id, statusKey) {
+      const member = data.members.find(m => m.id === id);
+      if (!member) return;
+      const prevStatus = member.status;
+      const now = nowISO();
+      if (prevStatus) {
+        data.history.unshift({
+          time: now,
+          name: member.name,
+          status: prevStatus,
+          duration: durationText(member.since, now),
+        });
+      }
+      member.status = statusKey;
+      member.since = now;
+      saveData(data); render();
+      showToast(`${member.name} is now ${STATUSES.find(s => s.key === statusKey).label}`);
+    }
+
+    function clearHistory() {
+      if (!confirm('Clear all history? This cannot be undone.')) return;
+      data.history = [];
+      saveData(data); render();
+      showToast('History cleared');
+    }
+
+    function exportCSV() {
+      const rows = [
+        ['Time', 'Name', 'Status', 'Duration'],
+        ...data.history.map(h => [h.time, h.name, h.status, h.duration])
+      ];
+      const csv = rows.map(r => r.map(x => `"${String(x).replace(/"/g, '""')}"`).join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `team-status-history-${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('CSV exported');
+    }
+
+    function renderStats() {
+      const counts = {};
+      STATUSES.forEach(s => counts[s.key] = 0);
+      data.members.forEach(m => { if (m.status) counts[m.status] = (counts[m.status] || 0) + 1; });
+      const el = document.getElementById('stats');
+      el.innerHTML = STATUSES.map(s =>
+        `<span class="stat-chip"><span class="dot" style="background:${getColor(s.key)}"></span>${s.label}: ${counts[s.key] || 0}</span>`
+      ).join('');
+    }
+
+    function getColor(key) {
+      switch (key) {
+        case 'on-duty':  return 'var(--success)';
+        case 'away':     return 'var(--warning)';
+        case 'restroom': return 'var(--info)';
+        case 'off':      return 'var(--danger)';
+        default:         return 'var(--muted)';
+      }
+    }
+
+    function render() {
+      const grid = document.getElementById('membersGrid');
+      if (!data.members.length) {
+        grid.innerHTML = '<div class="empty" style="grid-column:1/-1;">No team members yet. Add someone above to get started.</div>';
+      } else {
+        grid.innerHTML = data.members.map(m => {
+          const st = STATUSES.find(s => s.key === m.status) || { label: 'Unknown', class: 'status-unknown' };
+          const btns = STATUSES.map(s =>
+            `<button class="btn-sm ${s.btn}" onclick="setStatus('${m.id}', '${s.key}')">${s.label}</button>`
+          ).join('');
+          return `
+            <div class="member-card">
+              <div class="top">
+                <div class="name">${m.name}</div>
+                <div class="remove" onclick="removeMember('${m.id}')" title="Remove">&times;</div>
+              </div>
+              <div class="status-badge ${st.class}">${st.label}</div>
+              <div style="color:var(--muted);font-size:0.85rem;margin-bottom:10px;">
+                ${m.status ? 'Since ' + fmtTime(m.since) : 'No status set'}
+              </div>
+              <div class="actions">${btns}</div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      const tbody = document.getElementById('historyBody');
+      if (!data.history.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="empty">No history yet. Status changes will appear here.</td></tr>';
+      } else {
+        tbody.innerHTML = data.history.slice(0, 200).map(h => {
+          const st = STATUSES.find(s => s.key === h.status) || { label: h.status, class: 'status-unknown' };
+          return `<tr>
+            <td>${fmtTime(h.time)}</td>
+            <td>${h.name}</td>
+            <td><span class="status-badge ${st.class}">${st.label}</span></td>
+            <td>${h.duration}</td>
+          </tr>`;
+        }).join('');
+      }
+      renderStats();
+    }
+
+    function tickClock() {
+      document.getElementById('clock').textContent = new Date().toLocaleTimeString('en-GB', { hour12: false });
+    }
+
+    document.getElementById('newMemberName').addEventListener('keypress', e => { if (e.key === 'Enter') addMember(); });
+    setInterval(tickClock, 1000);
+    tickClock();
+    render();
+  </script>
+</body>
+</html>
