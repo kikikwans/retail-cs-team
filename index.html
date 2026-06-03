@@ -162,7 +162,19 @@
     function loadData() {
       try {
         const raw = localStorage.getItem('teamStatusData');
-        if (raw) return JSON.parse(raw);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          // Migrate old history format (time+duration) to new format (start+end)
+          if (parsed.history && parsed.history.length && parsed.history[0].time !== undefined) {
+            parsed.history = parsed.history.map(h => ({
+              start: h.time,
+              end: h.time, // Old entries are already closed; set end equal to start so duration shows 0s
+              name: h.name,
+              status: h.status,
+            }));
+          }
+          return parsed;
+        }
       } catch (e) {}
       return { members: [], history: [] };
     }
@@ -210,16 +222,19 @@
     function setStatus(id, statusKey) {
       const member = data.members.find(m => m.id === id);
       if (!member) return;
-      const prevStatus = member.status;
       const now = nowISO();
-      if (prevStatus) {
-        data.history.unshift({
-          time: now,
-          name: member.name,
-          status: prevStatus,
-          duration: durationText(member.since, now),
-        });
+      // Close any ongoing history entry for this member
+      const ongoing = data.history.find(h => h.name === member.name && h.end === null);
+      if (ongoing) {
+        ongoing.end = now;
       }
+      // Open a new history entry for the new status
+      data.history.unshift({
+        start: now,
+        end: null,
+        name: member.name,
+        status: statusKey,
+      });
       member.status = statusKey;
       member.since = now;
       saveData(data); render();
@@ -234,9 +249,13 @@
     }
 
     function exportCSV() {
+      const now = new Date().toISOString();
       const rows = [
-        ['Time', 'Name', 'Status', 'Duration'],
-        ...data.history.map(h => [h.time, h.name, h.status, h.duration])
+        ['Start Time', 'Name', 'Status', 'Duration'],
+        ...data.history.map(h => {
+          const dur = h.end === null ? durationText(h.start, now) : durationText(h.start, h.end);
+          return [h.start, h.name, h.status, dur];
+        })
       ];
       const csv = rows.map(r => r.map(x => `"${String(x).replace(/"/g, '""')}"`).join(',')).join('\n');
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -295,21 +314,37 @@
         }).join('');
       }
 
+      renderHistory();
+      renderStats();
+    }
+
+    function renderHistory() {
       const tbody = document.getElementById('historyBody');
       if (!data.history.length) {
         tbody.innerHTML = '<tr><td colspan="4" class="empty">No history yet. Status changes will appear here.</td></tr>';
-      } else {
-        tbody.innerHTML = data.history.slice(0, 200).map(h => {
-          const st = STATUSES.find(s => s.key === h.status) || { label: h.status, class: 'status-unknown' };
-          return `<tr>
-            <td>${fmtTime(h.time)}</td>
-            <td>${h.name}</td>
-            <td><span class="status-badge ${st.class}">${st.label}</span></td>
-            <td>${h.duration}</td>
-          </tr>`;
-        }).join('');
+        return;
       }
-      renderStats();
+      const now = new Date();
+      tbody.innerHTML = data.history.slice(0, 200).map((h, idx) => {
+        const st = STATUSES.find(s => s.key === h.status) || { label: h.status, class: 'status-unknown' };
+        const isLive = h.end === null;
+        const dur = isLive ? durationText(h.start, now.toISOString()) : durationText(h.start, h.end);
+        const liveAttr = isLive ? `data-live-start="${h.start}"` : '';
+        return `<tr>
+          <td>${fmtTime(h.start)}</td>
+          <td>${h.name}</td>
+          <td><span class="status-badge ${st.class}">${st.label}</span></td>
+          <td class="dur-cell" ${liveAttr}>${dur}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    function updateLiveDurations() {
+      const now = new Date().toISOString();
+      document.querySelectorAll('[data-live-start]').forEach(cell => {
+        const start = cell.getAttribute('data-live-start');
+        cell.textContent = durationText(start, now);
+      });
     }
 
     function tickClock() {
@@ -318,6 +353,7 @@
 
     document.getElementById('newMemberName').addEventListener('keypress', e => { if (e.key === 'Enter') addMember(); });
     setInterval(tickClock, 1000);
+    setInterval(updateLiveDurations, 1000);
     tickClock();
     render();
   </script>
