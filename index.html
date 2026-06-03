@@ -254,8 +254,15 @@
       const rows = [
         ['Start Time', 'Name', 'Status', 'Duration'],
         ...data.history.map(h => {
-          const dur = h.end === null ? durationText(h.start, now) : durationText(h.start, h.end);
-          return [h.start, h.name, h.status, dur];
+          let dur;
+          if (h.status === 'off') {
+            dur = '—';
+          } else if (h.end === null) {
+            dur = durationText(h.start, now);
+          } else {
+            dur = durationText(h.start, h.end);
+          }
+          return [fmtTime(h.start), h.name, h.status, dur];
         })
       ];
       const csv = rows.map(r => r.map(x => `"${String(x).replace(/"/g, '""')}"`).join(',')).join('\n');
