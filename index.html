@@ -210,29 +210,38 @@
       document.getElementById('pwInput').addEventListener('keypress', e => { if (e.key === 'Enter') checkPassword(); });
     }
 
-    function loadData() {
+    const DB_URL = 'https://retail-cs-team-default-rtdb.asia-southeast1.firebasedatabase.app';
+    let data = { members: [], history: [] };
+
+    async function loadFromFirebase() {
       try {
-        const raw = localStorage.getItem('teamStatusData');
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          // Migrate old history format (time+duration) to new format (start+end)
-          if (parsed.history && parsed.history.length && parsed.history[0].time !== undefined) {
-            parsed.history = parsed.history.map(h => ({
-              start: h.time,
-              end: h.time, // Old entries are already closed; set end equal to start so duration shows 0s
-              name: h.name,
-              status: h.status,
-            }));
-          }
-          return parsed;
+        const [membersRes, historyRes] = await Promise.all([
+          fetch(`${DB_URL}/members.json`),
+          fetch(`${DB_URL}/history.json`)
+        ]);
+        if (membersRes.ok) {
+          const obj = await membersRes.json();
+          data.members = obj ? Object.values(obj) : [];
         }
-      } catch (e) {}
-      return { members: [], history: [] };
+        if (historyRes.ok) {
+          const obj = await historyRes.json();
+          data.history = obj ? Object.entries(obj)
+            .map(([key, val]) => ({ ...val, _key: key }))
+            .sort((a, b) => new Date(b.start) - new Date(a.start)) : [];
+        }
+      } catch (e) {
+        console.error('Sync failed', e);
+      }
     }
-    function saveData(data) {
-      localStorage.setItem('teamStatusData', JSON.stringify(data));
+
+    async function init() {
+      await loadFromFirebase();
+      render();
+      setInterval(async () => {
+        await loadFromFirebase();
+        render();
+      }, 2000);
     }
-    let data = loadData();
 
     function showToast(msg) {
       const t = document.getElementById('toast');
@@ -252,25 +261,35 @@
       return m > 0 ? `${m}m ${s}s` : `${s}s`;
     }
 
-    function addMember() {
+    async function addMember() {
       const input = document.getElementById('newMemberName');
       const name = input.value.trim();
       if (!name) { showToast('Please enter a name'); return; }
       if (data.members.some(m => m.name.toLowerCase() === name.toLowerCase())) {
         showToast('Member already exists'); return;
       }
-      data.members.push({ id: crypto.randomUUID(), name, status: '', since: nowISO() });
+      const member = { id: crypto.randomUUID(), name, status: '', since: nowISO() };
+      data.members.push(member);
       input.value = '';
-      saveData(data); render();
+      try {
+        await fetch(`${DB_URL}/members/${member.id}.json`, {
+          method: 'PUT',
+          body: JSON.stringify(member)
+        });
+      } catch (e) {}
+      render();
       showToast(`Added ${name}`);
     }
 
-    function removeMember(id) {
+    async function removeMember(id) {
       data.members = data.members.filter(m => m.id !== id);
-      saveData(data); render();
+      try {
+        await fetch(`${DB_URL}/members/${id}.json`, { method: 'DELETE' });
+      } catch (e) {}
+      render();
     }
 
-    function setStatus(id, statusKey) {
+    async function setStatus(id, statusKey) {
       const member = data.members.find(m => m.id === id);
       if (!member) return;
       const now = nowISO();
@@ -278,25 +297,53 @@
       const ongoing = data.history.find(h => h.name === member.name && h.end === null);
       if (ongoing) {
         ongoing.end = now;
+        if (ongoing._key) {
+          try {
+            await fetch(`${DB_URL}/history/${ongoing._key}.json`, {
+              method: 'PATCH',
+              body: JSON.stringify({ end: now })
+            });
+          } catch (e) {}
+        }
       }
-      // Open a new history entry for the new status
-      // Off work only records a timestamp, no live duration
-      data.history.unshift({
+      // Create new history entry
+      const entry = {
         start: now,
         end: statusKey === 'off' ? now : null,
         name: member.name,
         status: statusKey,
-      });
+      };
+      data.history.unshift(entry);
+      try {
+        const res = await fetch(`${DB_URL}/history.json`, {
+          method: 'POST',
+          body: JSON.stringify(entry)
+        });
+        if (res.ok) {
+          const { name: key } = await res.json();
+          entry._key = key;
+        }
+      } catch (e) {}
+      // Update member status
       member.status = statusKey;
       member.since = now;
-      saveData(data); render();
+      try {
+        await fetch(`${DB_URL}/members/${id}.json`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status: statusKey, since: now })
+        });
+      } catch (e) {}
+      render();
       showToast(`${member.name} is now ${STATUSES.find(s => s.key === statusKey).label}`);
     }
 
-    function clearHistory() {
+    async function clearHistory() {
       if (!confirm('Clear all history? This cannot be undone.')) return;
       data.history = [];
-      saveData(data); render();
+      try {
+        await fetch(`${DB_URL}/history.json`, { method: 'DELETE' });
+      } catch (e) {}
+      render();
       showToast('History cleared');
     }
 
@@ -422,7 +469,7 @@
     setInterval(tickClock, 1000);
     setInterval(updateLiveDurations, 1000);
     tickClock();
-    render();
+    init();
   </script>
 </body>
 </html>
