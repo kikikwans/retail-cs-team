@@ -299,7 +299,7 @@
       if (!member) return;
       const now = nowISO();
       // Close any ongoing history entry for this member
-      const ongoing = data.history.find(h => h.name === member.name && h.end === null);
+      const ongoing = data.history.find(h => h.name === member.name && !h.end);
       if (ongoing) {
         ongoing.end = now;
         if (ongoing._key) {
@@ -312,9 +312,10 @@
         }
       }
       // Create new history entry
+      // Use false instead of null because Firebase treats null as deletion
       const entry = {
         start: now,
-        end: statusKey === 'off' ? now : null,
+        end: statusKey === 'off' ? now : false,
         name: member.name,
         status: statusKey,
       };
@@ -360,7 +361,7 @@
           let dur;
           if (h.status === 'off') {
             dur = '—';
-          } else if (h.end === null) {
+          } else if (!h.end) {
             dur = durationText(h.start, now);
           } else {
             dur = durationText(h.start, h.end);
@@ -439,7 +440,7 @@
       tbody.innerHTML = data.history.slice(0, 200).map((h, idx) => {
         const st = STATUSES.find(s => s.key === h.status) || { label: h.status, class: 'status-unknown' };
         const isOff = h.status === 'off';
-        const isLive = h.end === null && !isOff;
+        const isLive = !h.end && !isOff;
         let dur;
         if (isOff) {
           dur = '—';
