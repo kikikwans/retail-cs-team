@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <title>Retail CS Team — Lazada Org</title>
   <style>
     :root {
@@ -436,8 +439,23 @@
         tbody.innerHTML = '<tr><td colspan="4" class="empty">No history yet. Status changes will appear here.</td></tr>';
         return;
       }
-      const now = new Date();
-      tbody.innerHTML = data.history.slice(0, 200).map((h, idx) => {
+      // Remove the empty-state row if it exists
+      if (tbody.children.length === 1 && tbody.children[0].querySelector('.empty')) {
+        tbody.innerHTML = '';
+      }
+      const targetRows = Math.min(data.history.length, 200);
+      // Add missing rows
+      while (tbody.children.length < targetRows) {
+        tbody.insertAdjacentHTML('beforeend', '<tr><td></td><td></td><td></td><td class="dur-cell"></td></tr>');
+      }
+      // Remove extra rows
+      while (tbody.children.length > targetRows) {
+        tbody.removeChild(tbody.lastChild);
+      }
+      // Update each row
+      const nowISOStr = new Date().toISOString();
+      data.history.slice(0, 200).forEach((h, idx) => {
+        const row = tbody.children[idx];
         const st = STATUSES.find(s => s.key === h.status) || { label: h.status, class: 'status-unknown' };
         const isOff = h.status === 'off';
         const isLive = !h.end && !isOff;
@@ -445,18 +463,20 @@
         if (isOff) {
           dur = '—';
         } else if (isLive) {
-          dur = durationText(h.start, now.toISOString());
+          dur = durationText(h.start, nowISOStr);
         } else {
           dur = durationText(h.start, h.end);
         }
-        const liveAttr = isLive ? `data-live-start="${h.start}"` : '';
-        return `<tr>
-          <td>${fmtTime(h.start)}</td>
-          <td>${h.name}</td>
-          <td><span class="status-badge ${st.class}">${st.label}</span></td>
-          <td class="dur-cell" ${liveAttr}>${dur}</td>
-        </tr>`;
-      }).join('');
+        row.cells[0].textContent = fmtTime(h.start);
+        row.cells[1].textContent = h.name;
+        row.cells[2].innerHTML = `<span class="status-badge ${st.class}">${st.label}</span>`;
+        row.cells[3].textContent = dur;
+        if (isLive) {
+          row.cells[3].setAttribute('data-live-start', h.start);
+        } else {
+          row.cells[3].removeAttribute('data-live-start');
+        }
+      });
     }
 
     function updateLiveDurations() {
