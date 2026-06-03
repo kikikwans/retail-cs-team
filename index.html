@@ -229,9 +229,10 @@
         ongoing.end = now;
       }
       // Open a new history entry for the new status
+      // Off work only records a timestamp, no live duration
       data.history.unshift({
         start: now,
-        end: null,
+        end: statusKey === 'off' ? now : null,
         name: member.name,
         status: statusKey,
       });
@@ -327,8 +328,16 @@
       const now = new Date();
       tbody.innerHTML = data.history.slice(0, 200).map((h, idx) => {
         const st = STATUSES.find(s => s.key === h.status) || { label: h.status, class: 'status-unknown' };
-        const isLive = h.end === null;
-        const dur = isLive ? durationText(h.start, now.toISOString()) : durationText(h.start, h.end);
+        const isOff = h.status === 'off';
+        const isLive = h.end === null && !isOff;
+        let dur;
+        if (isOff) {
+          dur = '—';
+        } else if (isLive) {
+          dur = durationText(h.start, now.toISOString());
+        } else {
+          dur = durationText(h.start, h.end);
+        }
         const liveAttr = isLive ? `data-live-start="${h.start}"` : '';
         return `<tr>
           <td>${fmtTime(h.start)}</td>
