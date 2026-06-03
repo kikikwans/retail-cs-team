@@ -109,6 +109,27 @@
     }
     .toast.show { opacity: 1; transform: translateY(0); }
 
+    .pw-overlay {
+      position: fixed; inset: 0; background: var(--bg);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 2000;
+    }
+    .pw-overlay.hidden { display: none; }
+    .pw-box {
+      background: var(--card); padding: 28px; border-radius: var(--radius);
+      box-shadow: var(--shadow); border: 1px solid var(--border);
+      width: 90%; max-width: 340px; text-align: center;
+    }
+    .pw-box h2 { margin: 0 0 8px; font-size: 1.25rem; }
+    .pw-box p { color: var(--muted); margin: 0 0 16px; font-size: 0.9rem; }
+    .pw-box input {
+      width: 100%; padding: 12px; border: 1px solid var(--border);
+      border-radius: 8px; font-size: 1rem; margin-bottom: 12px;
+    }
+    .pw-box .pw-error {
+      color: var(--danger); font-size: 0.85rem; margin-bottom: 10px; min-height: 1.2em;
+    }
+
     @media (max-width: 640px) {
       .grid { grid-template-columns: 1fr; }
       header { flex-direction: column; align-items: flex-start; }
@@ -151,6 +172,16 @@
 
   <div class="toast" id="toast"></div>
 
+  <div class="pw-overlay hidden" id="pwOverlay">
+    <div class="pw-box">
+      <h2>Retail CS Team</h2>
+      <p>Enter password to continue on mobile</p>
+      <input type="password" id="pwInput" placeholder="Password" />
+      <div class="pw-error" id="pwError"></div>
+      <button class="btn-primary" onclick="checkPassword()" style="width:100%">Unlock</button>
+    </div>
+  </div>
+
   <script>
     const STATUSES = [
       { key: 'on-duty',  label: 'On-duty',  class: 'status-on-duty',  btn: 'btn-success' },
@@ -158,6 +189,26 @@
       { key: 'restroom', label: 'Restroom', class: 'status-restroom', btn: 'btn-info' },
       { key: 'off',      label: 'Off',      class: 'status-off',      btn: 'btn-danger' },
     ];
+
+    const MOBILE_PASSWORD = 'lazada2024';
+    function isMobile() {
+      const ua = navigator.userAgent;
+      return /Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua) || window.innerWidth < 768;
+    }
+    function checkPassword() {
+      const input = document.getElementById('pwInput').value.trim();
+      const error = document.getElementById('pwError');
+      if (input === MOBILE_PASSWORD) {
+        document.getElementById('pwOverlay').classList.add('hidden');
+        error.textContent = '';
+      } else {
+        error.textContent = 'Wrong password. Please try again.';
+      }
+    }
+    if (isMobile()) {
+      document.getElementById('pwOverlay').classList.remove('hidden');
+      document.getElementById('pwInput').addEventListener('keypress', e => { if (e.key === 'Enter') checkPassword(); });
+    }
 
     function loadData() {
       try {
