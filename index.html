@@ -213,25 +213,33 @@
       document.getElementById('pwInput').addEventListener('keypress', e => { if (e.key === 'Enter') checkPassword(); });
     }
 
-    const DB_URL = 'https://retail-cs-team-default-rtdb.asia-southeast1.firebasedatabase.app';
+    const SUPABASE_URL = 'https://flevrfajwomvuwfurahk.supabase.co/rest/v1';
+    const SUPABASE_KEY = 'sb_publishable_cdZIGZfjQZOQxxJBf0NZ5A_VXvDlF-V';
     let data = { members: [], history: [] };
 
-    async function loadFromFirebase() {
+    function supabaseHeaders(extra = {}) {
+      return {
+        'apikey': SUPABASE_KEY,
+        'Content-Type': 'application/json',
+        ...extra
+      };
+    }
+
+    async function loadFromSupabase() {
       try {
         const [membersRes, historyRes] = await Promise.all([
-          fetch(`${DB_URL}/members.json`),
-          fetch(`${DB_URL}/history.json`)
+          fetch(`${SUPABASE_URL}/members?select=*`, { headers: supabaseHeaders() }),
+          fetch(`${SUPABASE_URL}/history?select=*&order=start.desc&limit=200`, { headers: supabaseHeaders() })
         ]);
         if (membersRes.ok) {
-          const obj = await membersRes.json();
-          data.members = obj ? Object.values(obj) : [];
+          const rows = await membersRes.json();
+          data.members = Array.isArray(rows) ? rows.map(r => ({ ...r, id: String(r.id) })) : [];
         }
         if (historyRes.ok) {
-          const obj = await historyRes.json();
-          data.history = obj ? Object.entries(obj)
-            .map(([key, val]) => (val && typeof val === 'object' ? { ...val, _key: key } : null))
-            .filter(h => h && h.start)
-            .sort((a, b) => new Date(b.start) - new Date(a.start)) : [];
+          const rows = await historyRes.json();
+          data.history = Array.isArray(rows)
+            ? rows.filter(h => h && h.start).map(h => ({ ...h, _key: h.id }))
+            : [];
         }
       } catch (e) {
         console.error('Sync failed', e);
@@ -239,10 +247,10 @@
     }
 
     async function init() {
-      await loadFromFirebase();
+      await loadFromSupabase();
       render();
       setInterval(async () => {
-        await loadFromFirebase();
+        await loadFromSupabase();
         render();
       }, 2000);
     }
@@ -269,6 +277,11 @@
       return m > 0 ? `${m}m ${s}s` : `${s}s`;
     }
 
+    function nextMemberId() {
+      const ids = data.members.map(m => parseInt(m.id, 10)).filter(n => !isNaN(n));
+      return String(ids.length ? Math.max(...ids) + 1 : 1);
+    }
+
     async function addMember() {
       const input = document.getElementById('newMemberName');
       const name = input.value.trim();
@@ -276,12 +289,13 @@
       if (data.members.some(m => m.name.toLowerCase() === name.toLowerCase())) {
         showToast('Member already exists'); return;
       }
-      const member = { id: crypto.randomUUID(), name, status: '', since: nowISO() };
+      const member = { id: nextMemberId(), name, status: '', since: nowISO() };
       data.members.push(member);
       input.value = '';
       try {
-        await fetch(`${DB_URL}/members/${member.id}.json`, {
-          method: 'PUT',
+        await fetch(`${SUPABASE_URL}/members`, {
+          method: 'POST',
+          headers: supabaseHeaders(),
           body: JSON.stringify(member)
         });
       } catch (e) {}
@@ -292,7 +306,10 @@
     async function removeMember(id) {
       data.members = data.members.filter(m => m.id !== id);
       try {
-        await fetch(`${DB_URL}/members/${id}.json`, { method: 'DELETE' });
+        await fetch(`${SUPABASE_URL}/members?id=eq.${id}`, {
+          method: 'DELETE',
+          headers: supabaseHeaders()
+        });
       } catch (e) {}
       render();
     }
@@ -305,40 +322,44 @@
       const ongoing = data.history.find(h => h.name === member.name && !h.end);
       if (ongoing) {
         ongoing.end = now;
-        if (ongoing._key) {
+        if (ongoing._key != null) {
           try {
-            await fetch(`${DB_URL}/history/${ongoing._key}.json`, {
+            await fetch(`${SUPABASE_URL}/history?id=eq.${ongoing._key}`, {
               method: 'PATCH',
+              headers: supabaseHeaders(),
               body: JSON.stringify({ end: now })
             });
           } catch (e) {}
         }
       }
       // Create new history entry
-      // Use false instead of null because Firebase treats null as deletion
       const entry = {
         start: now,
-        end: statusKey === 'off' ? now : false,
+        end: statusKey === 'off' ? now : null,
         name: member.name,
         status: statusKey,
       };
       data.history.unshift(entry);
       try {
-        const res = await fetch(`${DB_URL}/history.json`, {
+        const res = await fetch(`${SUPABASE_URL}/history`, {
           method: 'POST',
+          headers: supabaseHeaders({ 'Prefer': 'return=representation' }),
           body: JSON.stringify(entry)
         });
         if (res.ok) {
-          const { name: key } = await res.json();
-          entry._key = key;
+          const inserted = await res.json();
+          if (Array.isArray(inserted) && inserted.length) {
+            entry._key = inserted[0].id;
+          }
         }
       } catch (e) {}
       // Update member status
       member.status = statusKey;
       member.since = now;
       try {
-        await fetch(`${DB_URL}/members/${id}.json`, {
+        await fetch(`${SUPABASE_URL}/members?id=eq.${id}`, {
           method: 'PATCH',
+          headers: supabaseHeaders(),
           body: JSON.stringify({ status: statusKey, since: now })
         });
       } catch (e) {}
@@ -350,7 +371,10 @@
       if (!confirm('Clear all history? This cannot be undone.')) return;
       data.history = [];
       try {
-        await fetch(`${DB_URL}/history.json`, { method: 'DELETE' });
+        await fetch(`${SUPABASE_URL}/history`, {
+          method: 'DELETE',
+          headers: supabaseHeaders()
+        });
       } catch (e) {}
       render();
       showToast('History cleared');
