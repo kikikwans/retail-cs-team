@@ -196,7 +196,7 @@
     const MOBILE_PASSWORD = 'lazada2024';
     function isMobile() {
       const ua = navigator.userAgent;
-      return /Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua) || window.innerWidth < 768;
+      return /Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
     }
     function checkPassword() {
       const input = document.getElementById('pwInput').value.trim();
